@@ -15,6 +15,12 @@ name: OpenWrt Builder
 on:
   repository_dispatch:
   workflow_dispatch:
+    inputs:
+      enable_ssh:
+        description: "Enable SSH connection to Actions"
+        required: true
+        default: "false"
+        
 
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
@@ -70,11 +76,10 @@ jobs:
     - name: Install feeds
       run: cd openwrt && ./scripts/feeds install -a
 
-
-      
     - name: SSH connection to Actions
       uses: mxschmitt/action-tmate@v3
-      if: always()
+      if: ${{ github.event.inputs.enable_ssh == 'true' }}
+
 
 
     - name: Load custom configuration
