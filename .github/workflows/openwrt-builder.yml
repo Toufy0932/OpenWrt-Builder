@@ -81,8 +81,7 @@ jobs:
 
     - name: SSH connection to Actions
       uses: mxschmitt/action-tmate@v3
-      if: ${{ github.event.inputs.enable_ssh == 'true' }}
-
+      if: ${{ inputs.enable_ssh == 'true' }}
 
     - name: Load custom configuration
       run: |
