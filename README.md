@@ -9,3 +9,8 @@ cd openwrt
 make menuconfig  选择配置
 
 完成后按Ctrl+D组合键或执行exit命令退出，后续编译工作将自动进行
+
+致谢
+https://github.com/P3TERX/Actions-OpenWrt
+
+https://github.com/coolsnowwolf/lede
