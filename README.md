@@ -1,6 +1,6 @@
 1.运行 OpenWrt Builder 工作流，Enable SSH connection to Actions  为true
 
-2.等待 SSH 链接，点击打开网页SSH
+2.等待工作流进行到 SSH 输出链接，点击打开网页SSH
 
 3.ctrl+c（网页终端可能会遇到黑屏的情况，按 Ctrl+C 即可）
 
