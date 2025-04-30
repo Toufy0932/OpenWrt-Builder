@@ -6,7 +6,7 @@
 
 cd openwrt
 
-make menuconfig  选择配置
+make menuconfig  选择配置，两次esc键返回ssh，执行make defconfig  
 
 完成后按Ctrl+D组合键或执行exit命令退出，后续编译工作将自动进行
 
