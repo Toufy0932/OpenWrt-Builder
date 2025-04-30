@@ -51,7 +51,7 @@ jobs:
         run: |
           cd openwrt
           sed -i 's/#src-git helloworld/src-git helloworld/g' ./feeds.conf.default
-          #添加自定义feeds库
+          #添加自定义feeds库（改下面的链接）
           #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
