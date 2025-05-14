@@ -119,7 +119,6 @@ jobs:
         run: |
           echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
           touch release.txt
-          if [[ "${{ env.UPLOAD_GOFILE }}" == "true" && -n "${GOFILE_URL}" ]]; then
             echo "🔗 [GoFile](${GOFILE_URL})" >> release.txt
           fi
             echo "status=success" >> $GITHUB_OUTPUT
