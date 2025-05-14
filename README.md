@@ -21,6 +21,7 @@ GitHub Actions 自动化编译 OpenWrt 固件，支持 .config 自动加载 & SS
 出现黑屏时按 Ctrl+C，输入以下命令：
 
 cd openwrt
+
 make menuconfig
 
 完成配置后，按两次 Esc 退出菜单并保存
