@@ -56,13 +56,11 @@ jobs:
           
       - name: Load custom configuration
         run: |
-         if [ -f .config ]; then
-           cp .config openwrt/.config
-         else
-           echo "⚠️ .config 文件不存在，跳过复制步骤"
-           cd openwrt
-           make defconfig
-         fi
+          if [ -f .config ]; then
+            cp .config openwrt/.config
+          else
+            echo "⚠️ .config 文件不存在，跳过复制步骤，请手动执行 make menuconfig 生成配置"
+          fi
  
       - name: SSH connection to Actions
         uses: mxschmitt/action-tmate@v3
