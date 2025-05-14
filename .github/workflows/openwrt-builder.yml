@@ -57,12 +57,13 @@ jobs:
           
       - name: Load custom configuration
         run: |
-          if [ -e files ]; then
-            mv files openwrt/files
+          if [ -d files ]; then
+            cp -r files openwrt/
           fi
-          if [ -n "${CONFIG_FILE}" ] && [ -e "${CONFIG_FILE}" ]; then
-            mv "${CONFIG_FILE}" openwrt/.config
+          if [ -f "$CONFIG_FILE" ]; then
+            cp "$CONFIG_FILE" openwrt/.config
           fi
+
 
           
       - name: SSH connection to Actions
