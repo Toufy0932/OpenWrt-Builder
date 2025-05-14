@@ -12,7 +12,6 @@ on:
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
-  CONFIG_FILE: .config
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -57,19 +56,14 @@ jobs:
           
       - name: Load custom configuration
         run: |
-          if [ -d files ]; then
-            cp -r files openwrt/
-          fi
-          if [ -f "$CONFIG_FILE" ]; then
-            cp "$CONFIG_FILE" openwrt/.config
-          fi
-          
-      - name: Apply .config
-        run: |
-          cd openwrt
-          make defconfig
-
-          
+         if [ -f .config ]; then
+           cp .config openwrt/.config
+         else
+           echo "⚠️ .config 文件不存在，跳过复制步骤"
+           cd openwrt
+           make defconfig
+         fi
+ 
       - name: SSH connection to Actions
         uses: mxschmitt/action-tmate@v3
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.enable_ssh == 'true'
