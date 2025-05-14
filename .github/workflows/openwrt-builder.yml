@@ -63,7 +63,11 @@ jobs:
           if [ -f "$CONFIG_FILE" ]; then
             cp "$CONFIG_FILE" openwrt/.config
           fi
-
+          
+      - name: Apply .config
+        run: |
+          cd openwrt
+          make defconfig
 
           
       - name: SSH connection to Actions
