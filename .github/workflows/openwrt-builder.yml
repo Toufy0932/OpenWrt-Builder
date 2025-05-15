@@ -12,6 +12,7 @@ on:
 env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
+  CONFIG_FILE: .config
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
   UPLOAD_RELEASE: true
@@ -22,6 +23,9 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4 
+        
       - name: Space cleanup and Initialization environment
         env:
           DEBIAN_FRONTEND: noninteractive
@@ -53,6 +57,16 @@ jobs:
           #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+
+          
+      - name: Load custom configuration
+        run: |
+          if [ -f "$CONFIG_FILE" ]; then
+            echo "✅ 检测到配置文件 $CONFIG_FILE，复制到 openwrt/.config"
+            cp "$CONFIG_FILE" openwrt/.config
+          else
+            echo "⚠️ $CONFIG_FILE 文件不存在，跳过复制步骤"
+          fi
 
  
       - name: SSH connection to Actions
