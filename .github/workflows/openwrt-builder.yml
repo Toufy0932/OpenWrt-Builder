@@ -54,13 +54,18 @@ jobs:
           #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+
           
       - name: Load custom configuration
         run: |
           echo "当前工作目录: $(pwd)"
-          echo "仓库根目录内容列表:"
-          ls -la "$GITHUB_WORKSPACE"
-          CONFIG_PATH="$GITHUB_WORKSPACE/$CONFIG_FILE"
+          echo "仓库根目录文件列表:"
+          ls -la "${GITHUB_WORKSPACE}"
+    
+          CONFIG_PATH="${GITHUB_WORKSPACE}/${CONFIG_FILE}"
+          echo "CONFIG_FILE = '${CONFIG_FILE}'"
+          echo "CONFIG_PATH = '${CONFIG_PATH}'"
+    
           if [ -f "$CONFIG_PATH" ]; then
             echo "✅ 找到配置文件 $CONFIG_PATH，复制到 openwrt/.config"
             cp "$CONFIG_PATH" openwrt/.config
