@@ -87,11 +87,22 @@ jobs:
         run: |
           cd openwrt
           echo -e "$(nproc) thread compile"
-          make -j$(nproc) || make -j1 V=s
-          echo "status=success" >> $GITHUB_OUTPUT
+          if make -j$(nproc); then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ 多线程编译失败，尝试单线程调试模式"
+            make -j1 V=s || exit 1
+          fi
+
           grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-          [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-          echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+          if [ -s DEVICE_NAME ]; then
+            echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+          else
+            echo "DEVICE_NAME=_unknown" >> $GITHUB_ENV
+          fi
+
+            echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
 
 
       - name: Upload bin directory
@@ -122,10 +133,13 @@ jobs:
         if: env.UPLOAD_RELEASE == 'true' && !cancelled()
         run: |
           echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_OUTPUT
+          echo "status=success" >> $GITHUB_OUTPUT
+
           touch release.txt
-            echo "🔗 [GoFile](${GOFILE_URL})" >> release.txt
-          fi
-            echo "status=success" >> $GITHUB_OUTPUT
+          echo "🎉 OpenWrt 编译完成！" >> release.txt
+          # 如果你未来需要添加 GoFile 链接，可以这样写
+          # echo "🔗 [GoFile](${GOFILE_URL:-未定义})" >> release.txt
+
             
       - name: Upload firmware to release
         uses: softprops/action-gh-release@v2
@@ -150,5 +164,5 @@ jobs:
           keep_latest: 3
           delete_tags: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
