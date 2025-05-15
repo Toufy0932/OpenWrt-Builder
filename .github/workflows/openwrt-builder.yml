@@ -57,12 +57,21 @@ jobs:
           
       - name: Load custom configuration
         run: |
+          echo "当前目录: $(pwd)"
+          echo "目录文件列表:"
+          ls -la
+
+          echo "CONFIG_FILE = '$CONFIG_FILE'"
+
           if [ -f "$CONFIG_FILE" ]; then
-            echo "✅ 检测到配置文件 $CONFIG_FILE，复制到 openwrt/.config"
+            echo "✅ 找到配置文件 $CONFIG_FILE，复制到 openwrt/.config"
             cp "$CONFIG_FILE" openwrt/.config
+            echo "复制后的文件信息："
+            ls -lh openwrt/.config
           else
             echo "⚠️ $CONFIG_FILE 文件不存在，跳过复制步骤"
           fi
+
  
       - name: SSH connection to Actions
         uses: mxschmitt/action-tmate@v3
