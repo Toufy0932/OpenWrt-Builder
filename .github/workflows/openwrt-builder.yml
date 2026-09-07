@@ -54,7 +54,7 @@ jobs:
           cd openwrt
           #添加自定义feeds库（改下面的链接）
           #echo 'src-git helloworld https://github.com/fw876/helloworld' >>feeds.conf.default
-          echo 'src-git openwrt-clashoo https://github.com/kenzok8/openwrt-clashoo.git ' >>feeds.conf.default
+          echo 'src-git openwrt-clashoo https://github.com/kenzok8/openwrt-clashoo.git' >> feeds.conf.default
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
