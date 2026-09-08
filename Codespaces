@@ -1,0 +1,13 @@
+# ① 装最小依赖（只跑配置，不用装全套编译依赖）
+sudo apt update && sudo apt install -y build-essential libncurses-dev flex bison git python3 gettext zlib1g-dev
+
+# ② 拉 lede 源码
+git clone --depth=1 -b master https://github.com/coolsnowwolf/lede openwrt
+cd openwrt
+
+# ③ 加你的 clashoo feed（和仓库工作流保持一致）
+echo 'src-git clashoo https://github.com/kenzok8/openwrt-clashoo.git' >> feeds.conf.default
+./scripts/feeds update -a && ./scripts/feeds install -a
+
+# ④ 打开可视化配置界面
+make menuconfig
