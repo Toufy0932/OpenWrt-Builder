@@ -124,10 +124,15 @@ jobs:
         run: |
           cd openwrt
           echo "$(nproc) thread compile"
+          # Go 模块缓存 (dl/go-mod-cache) 在并发/中断时容易损坏，
+          # 表现为 "no required module provides package" / "missing go.sum entry" /
+          # "build constraints exclude all Go files"，所以每次编译前清掉，保证从完整缓存开始
+          rm -rf dl/go-mod-cache
           if make -j$(nproc); then
             echo "编译成功"
           else
-            echo "多线程编译失败，尝试单线程调试模式"
+            echo "多线程编译失败，清理 Go 模块缓存后单线程重试"
+            rm -rf dl/go-mod-cache
             make -j1 V=s || exit 1
           fi
           # status 要放在 if/else 之外：单线程回退编译成功时也必须输出，
