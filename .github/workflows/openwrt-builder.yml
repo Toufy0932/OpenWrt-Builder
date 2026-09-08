@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 360
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Space cleanup and Initialization environment
         env:
@@ -89,14 +89,16 @@ jobs:
       - name: SSH connection to Actions
         uses: mxschmitt/action-tmate@v3
         if: github.event_name == 'workflow_dispatch' && github.event.inputs.enable_ssh == 'true'
-        timeout-minutes: 60
+        # SSH 只是调试辅助：连不上 tmate.io 时不要拖垮整个构建
+        continue-on-error: true
+        timeout-minutes: 20
         with:
           # 公开仓库下限制只有触发者本人（需在 GitHub 注册过 SSH 公钥）能连接，
           # 否则任何人都可能从日志拿到地址 SSH 进 runner
           limit-access-to-actor: true
 
       - name: Cache OpenWrt downloads
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: openwrt/dl
           key: dl-${{ runner.os }}-${{ hashFiles('openwrt/feeds.conf.default') }}-${{ hashFiles('.config') }}
@@ -141,7 +143,7 @@ jobs:
           echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
 
       - name: Upload bin directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
         with:
           name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -163,7 +165,7 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
 
       - name: Upload firmware directory
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: steps.organize.outputs.status == 'success' && !cancelled()
         with:
           name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
@@ -183,7 +185,7 @@ jobs:
           } > release.txt
 
       - name: Upload firmware to release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         if: steps.tag.outputs.status == 'success' && !cancelled()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
