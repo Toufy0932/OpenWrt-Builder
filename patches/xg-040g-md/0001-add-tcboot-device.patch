@@ -15,10 +15,12 @@ index d9a72ef..8d507ee 100644
 +  KERNEL_SIZE := 8192k
 +  IMAGE_SIZE := 261120k
 +  KERNEL_IN_UBI := 1
++  UBOOTENV_IN_UBI := 1
 +  UBINIZE_OPTS += -s 2048
 +  IMAGES := factory.bin sysupgrade.bin
 +  IMAGE/factory.bin := append-kernel | pad-to 8192k | append-ubi
 +  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
++  SUPPORTED_DEVICES += nokia,xg-040g-md
 +  DEVICE_PACKAGES += ubi-utils
 +endef
 +TARGET_DEVICES += nokia_xg-040g-md-tcboot
