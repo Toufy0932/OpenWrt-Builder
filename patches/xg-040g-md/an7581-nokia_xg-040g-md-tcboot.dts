@@ -8,7 +8,7 @@
 
 / {
 	model = "Nokia XG-040G-MD (tcboot)";
-	compatible = "nokia,xg-040g-md-tcboot", "airoha,an7581", "airoha,en7581";
+	compatible = "nokia,xg-040g-md", "nokia,xg-040g-md-tcboot", "airoha,an7581", "airoha,en7581";
 	aliases {
 		label-mac-device = &gdm1;
 		serial0 = &uart1;
