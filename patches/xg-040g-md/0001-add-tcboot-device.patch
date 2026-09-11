@@ -2,7 +2,7 @@ diff --git a/target/linux/airoha/image/an7581.mk b/target/linux/airoha/image/an7
 index d9a72ef..8d507ee 100644
 --- a/target/linux/airoha/image/an7581.mk
 +++ b/target/linux/airoha/image/an7581.mk
-@@ -99,3 +99,19 @@ define Device/nokia_xg-040g-md
+@@ -99,3 +99,21 @@ define Device/nokia_xg-040g-md
    IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
  endef
  TARGET_DEVICES += nokia_xg-040g-md
