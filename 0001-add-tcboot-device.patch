@@ -1,0 +1,24 @@
+diff --git a/target/linux/airoha/image/an7581.mk b/target/linux/airoha/image/an7581.mk
+index d9a72ef..8d507ee 100644
+--- a/target/linux/airoha/image/an7581.mk
++++ b/target/linux/airoha/image/an7581.mk
+@@ -99,3 +99,19 @@ define Device/nokia_xg-040g-md
+   IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+ endef
+ TARGET_DEVICES += nokia_xg-040g-md
++
++define Device/nokia_xg-040g-md-tcboot
++  $(call Device/nokia_xg-040g-md-common)
++  DEVICE_VARIANT := (tcboot)
++  DEVICE_DTS := an7581-nokia_xg-040g-md-tcboot
++  KERNEL_LOADADDR := 0x80088000
++  KERNEL_SIZE := 8192k
++  IMAGE_SIZE := 261120k
++  KERNEL_IN_UBI := 1
++  UBINIZE_OPTS += -s 2048
++  IMAGES := factory.bin sysupgrade.bin
++  IMAGE/factory.bin := append-kernel | pad-to 8192k | append-ubi
++  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
++  DEVICE_PACKAGES += ubi-utils
++endef
++TARGET_DEVICES += nokia_xg-040g-md-tcboot
