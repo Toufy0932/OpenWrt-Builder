@@ -7,10 +7,10 @@
 #include "an7581.dtsi"
 
 / {
-	model = "Nokia XG-040G-MD (tcboot)";
-	compatible = "nokia,xg-040g-md", "nokia,xg-040g-md-tcboot", "airoha,an7581", "airoha,en7581";
+	model = "Nokia Bell XG-040G-MD";
+	compatible = "bell,xg-040g-md", "airoha,an7581", "airoha,en7581";
+
 	aliases {
-		label-mac-device = &gdm1;
 		serial0 = &uart1;
 	};
 
@@ -49,19 +49,19 @@
 
 		led-1 {
 			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_WAN;
+			function = LED_FUNCTION_STATUS;
 			gpios = <&en7581_pinctrl 18 GPIO_ACTIVE_LOW>;
 		};
 
 		led-2 {
 			color = <LED_COLOR_ID_RED>;
-			function = LED_FUNCTION_WAN;
+			function = LED_FUNCTION_STATUS;
 			gpios = <&en7581_pinctrl 19 GPIO_ACTIVE_LOW>;
 		};
 
 		led-3 {
 			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_WAN_ONLINE;
+			function = LED_FUNCTION_STATUS;
 			gpios = <&en7581_pinctrl 20 GPIO_ACTIVE_LOW>;
 		};
 
@@ -147,6 +147,42 @@
 			pins = "gpio46";
 		};
 	};
+};
+
+&snfi {
+	status = "okay";
+};
+
+&spi_nand {
+	partitions {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		partition@0 {
+			label = "bootloader";
+			reg = <0x0 0x80000>;
+			read-only;
+		};
+
+		partition@80000 {
+			label = "env";
+			reg = <0x80000 0x80000>;
+		};
+
+		partition@100000 {
+			label = "ubi";
+			reg = <0x100000 0xff00000>;
+		};
+	};
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&eth {
+	status = "okay";
 };
 
 &mdio {
@@ -256,11 +292,10 @@
 &gdm4 {
 	status = "okay";
 
-	openwrt,netdev-name = "lan1";
+	openwrt,netdev-name = "eth1";
 
 	phy-handle = <&en8811>;
 	phy-mode = "2500base-x";
-
 };
 
 &usb0 {
@@ -291,65 +326,4 @@
 		reg = <1>;
 		#trigger-source-cells = <0>;
 	};
-};
-
-&eth {
-	status = "okay";
-};
-
-&eth_pcs {
-	status = "okay";
-};
-
-&i2c0 {
-	status = "okay";
-};
-
-&npu {
-	status = "okay";
-};
-
-&pon_pcs {
-	status = "okay";
-};
-
-&snfi {
-	status = "okay";
-};
-
-&spi_nand {
-	/*
-	 *  ECC must be aligned with bootloader to prevent read errors.
-	 *  Stock fw also uses NAND_ECC_NONE.
-	 */
-	nand-ecc-mode = "none";
-	nand-ecc-step-size = <2048>;
-	nand-ecc-strength = <0>;
-
-	partitions: partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
-
-		partition@0 {
-			label = "bootloader";
-			reg = <0x0 0x80000>;
-			read-only;
-		};
-
-		partition@80000 {
-			label = "env";
-			reg = <0x80000 0x80000>;
-		};
-
-		partition@100000 {
-			label = "ubi";
-			reg = <0x100000 0xff00000>;
-			compatible = "linux,ubi";
-		};
-	};
-};
-
-&gdm1 {
-	status = "okay";
 };
