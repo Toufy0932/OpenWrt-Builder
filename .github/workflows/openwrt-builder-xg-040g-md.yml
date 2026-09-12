@@ -61,15 +61,23 @@ jobs:
           # 构建不需要完整 git 历史，浅克隆能明显缩短时间
           git clone $REPO_URL -b $REPO_BRANCH --depth=1 openwrt
 
-      - name: Apply XG-040G-MD tcboot patches
-        # 移植 nokia_xg-040g-md-tcboot 设备变体：编译出 tcboot 能刷的
-        # factory.bin（FIT 内核补齐 8MB + UBI rootfs 拼接）
+      - name: Apply XG-040G-MD bell patches
+        # 移植 bell_xg-040g-md 设备（对齐 xiangtailiang/OpenWrt-for-XG-040G-MD
+        # 实测成功的 tcboot 配置）：
+        #   - factory.bin = append-kernel | pad-to 8192k | append-ubi
+        #     （FIT 8MB + UBI，xiangtailiang 实测 tcboot 可刷）
+        #   - UBI 三卷 kernel/rootfs/rootfs_data（无 UBOOTENV_IN_UBI），
+        #     rootfs 卷1，bootargs root=ubi0:rootfs（卷名挂载，不依赖卷号）
+        #   - board_name = bell,xg-040g-md（与 xiangtailiang 一致）
+        #   - 网络 = lan2/3/4 + eth1 WAN（与教程固件一致）
         run: |
           cd openwrt
-          git apply "$GITHUB_WORKSPACE/patches/xg-040g-md/0001-add-tcboot-device.patch" \
-            || { echo "0001 应用失败，可能 lede 已更新，请反馈错误信息"; exit 1; }
-          git apply "$GITHUB_WORKSPACE/patches/xg-040g-md/0002-platform-tcboot.patch"
-          cp "$GITHUB_WORKSPACE/patches/xg-040g-md/an7581-nokia_xg-040g-md-tcboot.dts" \
+          for p in 0001-add-bell-device.patch 0002-platform-bell.patch \
+                   0003-network-bell.patch; do
+            git apply "$GITHUB_WORKSPACE/patches/xg-040g-md/$p" \
+              || { echo "补丁 $p 应用失败，可能 lede 已更新，请反馈错误信息"; exit 1; }
+          done
+          cp "$GITHUB_WORKSPACE/patches/xg-040g-md/an7581-bell_xg-040g-md.dts" \
             target/linux/airoha/dts/
 
       - name: Update feeds
