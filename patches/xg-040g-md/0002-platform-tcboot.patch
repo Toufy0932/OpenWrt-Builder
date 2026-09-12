@@ -1,14 +1,13 @@
 diff --git a/target/linux/airoha/an7581/base-files/lib/upgrade/platform.sh b/target/linux/airoha/an7581/base-files/lib/upgrade/platform.sh
-index 2e71693..d7e5f6b 100644
+index 2e71693..0dd4944 100644
 --- a/target/linux/airoha/an7581/base-files/lib/upgrade/platform.sh
 +++ b/target/linux/airoha/an7581/base-files/lib/upgrade/platform.sh
-@@ -15,7 +15,8 @@ platform_check_image() {
+@@ -15,7 +15,7 @@ platform_check_image() {
  	[ "$#" -gt 1 ] && return 1
  
  	case "$board" in
 -	nokia,xg-040g-md)
-+	nokia,xg-040g-md|\
-+	nokia,xg-040g-md-tcboot)
++	nokia,xg-040g-md|bell,xg-040g-md)
  		nand_do_platform_check "$board" "$1"
  		return $?
  		;;
