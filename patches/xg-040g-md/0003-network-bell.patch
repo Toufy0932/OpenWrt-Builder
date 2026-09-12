@@ -1,0 +1,14 @@
+diff --git a/target/linux/airoha/an7581/base-files/etc/board.d/02_network b/target/linux/airoha/an7581/base-files/etc/board.d/02_network
+index 30ed41c..ae93420 100644
+--- a/target/linux/airoha/an7581/base-files/etc/board.d/02_network
++++ b/target/linux/airoha/an7581/base-files/etc/board.d/02_network
+@@ -20,6 +20,9 @@ an7581_setup_interfaces()
+ 	nokia,xg-040g-md)
+ 		ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
+ 		;;
++	bell,xg-040g-md)
++		ucidef_set_interfaces_lan_wan "lan2 lan3 lan4" "eth1"
++		;;
+ 	*)
+ 		echo "Unsupported hardware. Network interfaces not initialized"
+ 		;;
