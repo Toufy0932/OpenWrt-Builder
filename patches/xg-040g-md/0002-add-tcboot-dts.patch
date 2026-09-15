@@ -1,0 +1,48 @@
+diff --git a/target/linux/airoha/dts/an7581-nokia_xg-040g-md-tcboot.dts b/target/linux/airoha/dts/an7581-nokia_xg-040g-md-tcboot.dts
+new file mode 100644
+index 0000000..5f8c4d8
+--- /dev/null
++++ b/target/linux/airoha/dts/an7581-nokia_xg-040g-md-tcboot.dts
+@@ -0,0 +1,42 @@
++// SPDX-License-Identifier: GPL-2.0-only OR MIT
++
++#include "an7581-nokia_xg-040g-md-common.dtsi"
++
++/ {
++	model = "Nokia XG-040G-MD (tcboot)";
++	compatible = "nokia,xg-040g-md-tcboot", "airoha,an7581",
++		     "airoha,en7581";
++
++	chosen {
++		bootargs = "ubi.mtd=ubi root=ubi0:rootfs rootfstype=squashfs ro rootwait console=ttyS0,115200 earlycon";
++	};
++};
++
++&partitions {
++	partition@0 {
++		label = "bootloader";
++		reg = <0x0 0x80000>;
++		read-only;
++	};
++
++	partition@80000 {
++		label = "env";
++		reg = <0x80000 0x80000>;
++	};
++
++	partition@100000 {
++		label = "ubi";
++		reg = <0x100000 0xff00000>;
++		compatible = "linux,ubi";
++	};
++};
++
++&gdm1 {
++	/delete-property/ nvmem-cell-names;
++	/delete-property/ nvmem-cells;
++};
++
++&gdm4 {
++	/delete-property/ nvmem-cell-names;
++	/delete-property/ nvmem-cells;
++};
