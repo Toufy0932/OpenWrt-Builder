@@ -20,13 +20,19 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # ImmortalWrt 官方源（openwrt main 分支），而非 lede：
-  # lede 是老 fork，FIT/设备体系与主线有兼容差异，tcboot 解析不了，
-  # 编译出的固件刷入后起不来（灯不亮）。
-  # ImmortalWrt 与 openwrt main 同源，配合本仓库的 tcboot 设备补丁，
-  # 编译产物 = xiangtailiang 实测成功的同款结构（FIT 8MB + UBI 三卷）。
-  REPO_URL: https://github.com/immortalwrt/immortalwrt
-  REPO_BRANCH: master
+  # 直接用 xiangtailiang/OpenWrt-for-XG-040G-MD 实测成功的 fork 源码
+  # （openwrt main 分支）。对比结论：
+  #   - 设备 nokia_xg-040g-md-tcboot / DTS / factory.bin 结构与
+  #     ImmortalWrt 补丁版一致（就是从他 fork 抄的）
+  #   - 但 fork 还含 ImmortalWrt 缺的两样关键改动：
+  #     ① 02_network 有 nokia,xg-040g-md-tcboot case（全 LAN + 从 env 分区读 MAC）
+  #     ② generic/pending-6.18/600-mtd-spinand-add-skyhigh-robust-read-workaround.patch
+  #        （SkyHigh NAND 稳健读，你的芯片 S35ML02G300 必须有，否则 rootfs 读取不稳）
+  # 所以不再在 ImmortalWrt 上打补丁（打地鼠），直接用完整成功基线。
+  REPO_URL: https://github.com/xiangtailiang/openwrt.git
+  REPO_BRANCH: main
+  # 设备名由 workflow 在 config 里强制（对齐 xiangtailiang 的做法）
+  DEVICE_PROFILE: nokia_xg-040g-md-tcboot
   CONFIG_FILE: xg-040g-md.config
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: true
@@ -66,21 +72,6 @@ jobs:
           # 构建不需要完整 git 历史，浅克隆能明显缩短时间
           git clone $REPO_URL -b $REPO_BRANCH --depth=1 openwrt
 
-      - name: Apply XG-040G-MD tcboot patches
-        # 移植 xiangtailiang/OpenWrt-for-XG-040G-MD 实测成功的 tcboot 设备：
-        #   - 0001: an7581.mk 新增 nokia_xg-040g-md-tcboot 设备
-        #     factory.bin = append-kernel | pad-to 8192k | append-ubi
-        #     （FIT 8MB + UBI 三卷，tcboot Web 可刷）
-        #   - 0002: 新增 an7581-nokia_xg-040g-md-tcboot.dts
-        #     （bootloader/env/ubi 分区 + gdm1/gdm4 删 nvmem 引用）
-        # 两个补丁已在 ImmortalWrt master 干净源码 git apply 验证通过
-        run: |
-          cd openwrt
-          for p in 0001-add-tcboot-device.patch 0002-add-tcboot-dts.patch; do
-            git apply "$GITHUB_WORKSPACE/patches/xg-040g-md/$p" \
-              || { echo "补丁 $p 应用失败，可能 ImmortalWrt 已更新，请反馈错误信息"; exit 1; }
-          done
-
       - name: Update feeds
         run: |
           cd openwrt
@@ -91,15 +82,32 @@ jobs:
 
       - name: Load custom configuration
         run: |
-          if [ -f "$CONFIG_FILE" ]; then
-            echo "检测到配置文件 $CONFIG_FILE，复制到 openwrt/.config"
-            cp "$CONFIG_FILE" openwrt/.config
-            cd openwrt
-            # 用默认值补全 .config 缺失的配置项，避免编译时卡在交互式配置提示
-            make defconfig
-          else
+          if [ ! -f "$CONFIG_FILE" ]; then
             echo "警告: $CONFIG_FILE 文件不存在，跳过复制步骤"
+            exit 1
           fi
+          echo "检测到配置文件 $CONFIG_FILE，复制到 openwrt/.config"
+          cp "$CONFIG_FILE" openwrt/.config
+          cd openwrt
+          # 强制目标设备（对齐 xiangtailiang workflow 的做法：
+          # 无论 config 里写了什么设备，统一替换成 tcboot 设备 + 内核 6.18）
+          sed -i '/^CONFIG_TARGET_airoha_an7581_DEVICE_/d' .config
+          printf 'CONFIG_TARGET_airoha_an7581_DEVICE_%s=y\n' "$DEVICE_PROFILE" >> .config
+          sed -i '/^CONFIG_LINUX_6_12=/d;/^CONFIG_LINUX_6_18=/d' .config
+          printf 'CONFIG_LINUX_6_18=y\n' >> .config
+          # clashoo 依赖：先把 config 里的 "is not set" 删掉，再统一追加 =y，
+          # 避免重复定义导致 defconfig 取舍异常
+          sed -i '/^# CONFIG_PACKAGE_coreutils is not set$/d' .config
+          sed -i '/^# CONFIG_PACKAGE_yq is not set$/d' .config
+          sed -i '/^# CONFIG_PACKAGE_unzip is not set$/d' .config
+          sed -i '/^# CONFIG_PACKAGE_kmod-dummy is not set$/d' .config
+          sed -i '/^# CONFIG_PACKAGE_kmod-nft-socket is not set$/d' .config
+          for p in luci-app-clashoo coreutils yq unzip firewall4 \
+                   kmod-dummy kmod-inet-diag kmod-nft-socket kmod-nft-tproxy; do
+            printf 'CONFIG_PACKAGE_%s=y\n' "$p" >> .config
+          done
+          # 用默认值补全 .config 缺失的配置项，避免编译时卡在交互式配置提示
+          make defconfig
 
       - name: SSH connection to Actions
         uses: mxschmitt/action-tmate@v3
