@@ -67,6 +67,21 @@ jobs:
           df -hT $PWD
           # 构建不需要完整 git 历史，浅克隆能明显缩短时间
           git clone $REPO_URL -b $REPO_BRANCH --depth=1 openwrt
+      - name: Apply MAC fallback patch
+        run: |
+          cd openwrt
+          # 修复 tcboot 固件网卡拿不到 MAC 的问题：
+          #   原厂 MAC 存在 factory 分区（偏移 0x3e），tcboot 布局没有该分区；
+          #   兜底逻辑从 env 分区读 ethaddr，但 tcboot 的 env 默认为空
+          #   → 网卡 MAC=00:00:00:00:00:00 → br-lan/DHCP/ARP 全挂
+          #   （症状：灯亮、内核起来了，但进不去系统、客户端拿不到地址）。
+          # 补丁给 02_network 增加"env 为空时生成稳定本地 MAC"的兜底。
+          if [ ! -f "../patches/xg-040g-md/0003-fix-mac-fallback.patch" ]; then
+            echo "错误: 补丁 ../patches/xg-040g-md/0003-fix-mac-fallback.patch 不存在"
+            exit 1
+          fi
+          patch -p1 < "../patches/xg-040g-md/0003-fix-mac-fallback.patch" || exit 1
+
 
       - name: Update feeds
         run: |
