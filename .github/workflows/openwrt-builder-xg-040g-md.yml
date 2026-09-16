@@ -1,232 +1,161 @@
-name: OpenWrt Builder XG-040G-MD (tcboot)
+name: OpenWrt Builder XG-040G-MD (ImmortalWrt)
 
 on:
-  repository_dispatch:
   workflow_dispatch:
     inputs:
-      enable_ssh:
-        description: "Enable SSH connection to Actions"
+      repo_branch:
+        description: '选择编译分支'
         required: true
-        default: "false"
+        default: 'master-XG-040G-MD'
+        type: choice
+        options:
+          - master-XG-040G-MD
+          - openwrt-25.12-XG-040G-MD
 
-# GITHUB_TOKEN 默认是只读的，上传 Release、删除 Workflow 运行记录都需要显式授权
 permissions:
   contents: write
-  actions: write
-
-# 同一时间只允许一个构建，避免并发构建互相抢占 Release tag
-concurrency:
-  group: openwrt-build-xg040gmd
-  cancel-in-progress: false
 
 env:
-  # 直接用 xiangtailiang/OpenWrt-for-XG-040G-MD 实测成功的 fork 源码
-  # （openwrt main 分支）。fork 内已含全部设备改动：
-  #   - 设备 nokia_xg-040g-md-tcboot（factory.bin = FIT 8MB + UBI 三卷，tcboot Web 可刷）
-  #   - 02_network 有 tcboot case（全 LAN + 从 env 分区读 MAC）
-  #   - generic/pending-6.18/600-mtd-spinand-add-skyhigh-robust-read-workaround.patch
-  #     （SkyHigh NAND 稳健读，S35ML02G300 必须有）
-  # config（xg-040g-md.config）已是成品：设备/内核/包全配好，workflow 不做任何改写。
-  REPO_URL: https://github.com/xiangtailiang/openwrt.git
-  REPO_BRANCH: main
-  CONFIG_FILE: xg-040g-md.config
+  # fzs209/ImmortalWrt-XG-040G-MD 实测可用的方案：
+  #   - 源码：fzs209/immortalwrt 的专用分支（已含全部设备改动，无需打补丁）
+  #     · 设备 bell,xg-040g-md（tcboot 布局 factory.bin，tcboot Web 可刷）
+  #     · 02_network：lan2-4 LAN + eth1 WAN，接近官方布局
+  #     · 99_fix-airoha-mac：uci-defaults 开机全接口设置 MAC（不依赖 env）
+  #     · SkyHigh S35ML02G300 / 复旦微 FM25G02B 闪存补丁、NPU 固件修复
+  #   - config：config/xg-040g-md.config（bell_xg-040g-md 设备 + luci + 中文）
+  REPO_URL: https://github.com/fzs209/immortalwrt.git
+  # REPO_BRANCH 由 workflow_dispatch 输入动态设置
+  DEVICE_TARGET: airoha
+  DEVICE_SUBTARGET: an7581
+  CONFIG_FILE: config/xg-040g-md.config
+  CACHE_TOOLCHAIN: true
   UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_RELEASE: true
+  FIRMWARE_RELEASE: true
+  TZ: Asia/Shanghai
 
 jobs:
-  build:
-    # ubuntu-22.04 目前仍可用，但已进入淘汰序列；包列表已兼容 24.04，
-    # 未来切换到 24.04 只需改这一行（若报镜像不存在，直接改 ubuntu-24.04 即可）
-    runs-on: ubuntu-22.04
-    timeout-minutes: 360
+  Build:
+    runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v7
+    - name: Initialization Environment(初始化环境)
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+        sudo -E apt -yqq install dos2unix
+        sudo -E apt -yqq install libfuse-dev
+        sudo -E apt -yqq autoremove --purge
+        sudo -E apt -yqq autoclean
+        sudo -E apt -yqq clean
+        sudo -E systemctl daemon-reload
+        sudo timedatectl set-timezone "$TZ"
 
-      - name: Space cleanup and Initialization environment
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          docker images -q | xargs -r docker rmi || true
-          sudo -E rm -rf /usr/share/dotnet /etc/mysql /etc/php /etc/apt/sources.list.d /usr/local/lib/android
-          sudo -E apt-mark hold grub-efi-amd64-signed
-          sudo -E apt update
-          sudo -E apt -y purge azure-cli* docker* ghc* zulu* llvm* firefox google* dotnet* powershell* openjdk* mysql* php* mongodb* snap*
-          sudo -E apt -y full-upgrade
-          # libncurses5-dev / libncursesw5-dev 在 22.04 只是过渡包、24.04 已移除；
-          # libncurses-dev 在 22.04/24.04 均可用，效果相同
-          sudo -E apt -y install ack antlr3 asciidoc autoconf automake autopoint binutils bison build-essential bzip2 ccache clang cmake cpio curl device-tree-compiler flex gawk gcc-multilib g++-multilib gettext git gperf haveged help2man intltool libc6-dev-i386 libelf-dev libglib2.0-dev libgmp3-dev libmpc-dev libmpfr-dev libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool lsb-release make patch perl-modules python3 python3-dev python3-distutils qemu-utils rsync scons squashfs-tools subversion swig texinfo unzip upx-ucl vim wget whiptail xsltproc zlib1g-dev
-          sudo -E systemctl daemon-reload
-          sudo -E apt -y autoremove --purge
-          sudo -E apt clean
-          sudo -E timedatectl set-timezone "Asia/Shanghai"
+    - name: Combine Disks(合并磁盘)
+      uses: easimon/maximize-build-space@master
+      with:
+        swap-size-mb: 1024
+        temp-reserve-mb: 100
+        root-reserve-mb: 1024
 
-      - name: Clone source code
-        run: |
-          df -hT $PWD
-          # 构建不需要完整 git 历史，浅克隆能明显缩短时间
-          git clone $REPO_URL -b $REPO_BRANCH --depth=1 openwrt
-      - name: Apply MAC fallback patch
-        run: |
-          cd openwrt
-          # 修复 tcboot 固件网卡拿不到 MAC 的问题：
-          #   原厂 MAC 存在 factory 分区（偏移 0x3e），tcboot 布局没有该分区；
-          #   兜底逻辑从 env 分区读 ethaddr，但 tcboot 的 env 默认为空
-          #   → 网卡 MAC=00:00:00:00:00:00 → br-lan/DHCP/ARP 全挂
-          #   （症状：灯亮、内核起来了，但进不去系统、客户端拿不到地址）。
-          # 补丁给 02_network 增加"env 为空时生成稳定本地 MAC"的兜底。
-          if [ ! -f "../patches/xg-040g-md/0003-fix-mac-fallback.patch" ]; then
-            echo "错误: 补丁 ../patches/xg-040g-md/0003-fix-mac-fallback.patch 不存在"
-            exit 1
-          fi
-          patch -p1 < "../patches/xg-040g-md/0003-fix-mac-fallback.patch" || exit 1
+    - name: Checkout
+      uses: actions/checkout@main
 
+    - name: Clone Source Code(克隆源代码)
+      env:
+        REPO_BRANCH: ${{ github.event.inputs.repo_branch }}
+      run: |
+        df -hT $GITHUB_WORKSPACE
+        # 公共仓库直接 clone，无需 token
+        git clone "$REPO_URL" -b "$REPO_BRANCH" openwrt
+        cd openwrt
+        echo "OPENWRT_PATH=$PWD" >> $GITHUB_ENV
+        VERSION_INFO=$(git show -s --date=short --format="作者: %an<br/>时间: %cd<br/>内容: %s<br/>hash: %H")
+        echo "VERSION_INFO=$VERSION_INFO" >> $GITHUB_ENV
+        echo "REPO_BRANCH=$REPO_BRANCH" >> $GITHUB_ENV
 
-      - name: Update feeds
-        run: |
-          cd openwrt
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+    - name: Generate Variables(生成变量)
+      run: |
+        SOURCE_REPO="$(echo $REPO_URL | awk -F '/' '{print $(NF)}')"
+        echo "SOURCE_REPO=$SOURCE_REPO" >> $GITHUB_ENV
+        echo "DEVICE_TARGET=$DEVICE_TARGET" >> $GITHUB_ENV
+        echo "DEVICE_SUBTARGET=$DEVICE_SUBTARGET" >> $GITHUB_ENV
+        echo "RELEASE_TAG=XG-040G-MD-$(date +"%Y%m%d")-${{ github.run_number }}" >> $GITHUB_ENV
 
-      - name: Load custom configuration
-        run: |
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "警告: $CONFIG_FILE 文件不存在，跳过复制步骤"
-            exit 1
-          fi
-          echo "检测到配置文件 $CONFIG_FILE，复制到 openwrt/.config"
-          cp "$CONFIG_FILE" openwrt/.config
-          cd openwrt
-          # 用默认值补全 .config 缺失的配置项，避免编译时卡在交互式配置提示
-          make defconfig
+    - name: Cache Toolchain(缓存工具链)
+      if: env.CACHE_TOOLCHAIN == 'true'
+      uses: HiGarfield/cachewrtbuild@main
+      with:
+        ccache: false
+        mixkey: ${{ env.SOURCE_REPO }}-${{ env.REPO_BRANCH }}-${{ env.DEVICE_TARGET }}-${{ env.DEVICE_SUBTARGET }}
+        prefix: ${{ env.OPENWRT_PATH }}
 
-      - name: SSH connection to Actions
-        uses: mxschmitt/action-tmate@v3
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.enable_ssh == 'true'
-        # SSH 只是调试辅助：连不上 tmate.io 时不要拖垮整个构建
-        continue-on-error: true
-        timeout-minutes: 20
-        with:
-          # 公开仓库下限制只有触发者本人（需在 GitHub 注册过 SSH 公钥）能连接，
-          # 否则任何人都可能从日志拿到地址 SSH 进 runner
-          limit-access-to-actor: true
+    - name: Install Feeds(安装feeds)
+      run: |
+        cd $OPENWRT_PATH
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
 
-      - name: Cache OpenWrt downloads
-        uses: actions/cache@v6
-        with:
-          path: openwrt/dl
-          key: dl-${{ runner.os }}-${{ hashFiles('openwrt/feeds.conf.default') }}-${{ hashFiles('xg-040g-md.config') }}
-          restore-keys: |
-            dl-${{ runner.os }}-
+    - name: Load Custom Configuration(加载自定义配置)
+      run: |
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE $OPENWRT_PATH/.config
+        cd $OPENWRT_PATH
+        make defconfig
+        grep "CONFIG_PACKAGE_luci-app-airoha-npu" .config || echo "WARNING: option missing!"
 
-      - name: Download package
-        run: |
-          cd openwrt
-          # 尝试下载，如果失败则清理所有缓存后重试
-          if ! make download -j8; then
-            echo "下载失败，清理所有缓存后重试..."
-            rm -rf dl/*
-            make download -j8 || exit 1
-          fi
-          # 删除下载失败产生的 <1KB 空文件
-          find dl -size -1024c -delete
+    - name: Download DL Package(下载DL软件包)
+      run: |
+        cd $OPENWRT_PATH
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
 
-      - name: Compile the firmware
-        id: compile
-        run: |
-          cd openwrt
-          echo "$(nproc) thread compile"
-          # Go 模块缓存 (dl/go-mod-cache) 在并发/中断时容易损坏，
-          # 表现为 "no required module provides package" / "missing go.sum entry" /
-          # "build constraints exclude all Go files"，所以每次编译前清掉，保证从完整缓存开始
-          rm -rf dl/go-mod-cache
-          if make -j$(nproc); then
-            echo "编译成功"
-          else
-            echo "多线程编译失败，清理 Go 模块缓存后单线程重试"
-            rm -rf dl/go-mod-cache
-            make -j1 V=s || exit 1
-          fi
-          # status 要放在 if/else 之外：单线程回退编译成功时也必须输出，
-          # 否则后续上传步骤会因 outputs.status 为空而被跳过
-          echo "status=success" >> $GITHUB_OUTPUT
-          grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-          if [ -s DEVICE_NAME ]; then
-            # 配置多个设备时用下划线拼接，避免工件名里出现换行
-            echo "DEVICE_NAME=_$(paste -sd_ DEVICE_NAME)" >> $GITHUB_ENV
-          else
-            echo "DEVICE_NAME=_unknown" >> $GITHUB_ENV
-          fi
-          echo "FILE_DATE=_$(date +'%Y%m%d%H%M')" >> $GITHUB_ENV
+    - name: Compile Firmware(开始编译固件)
+      id: compile
+      run: |
+        cd $OPENWRT_PATH
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        echo "DATE=$(date +"%Y-%m-%d %H:%M:%S")" >> $GITHUB_ENV
+        echo "FILE_DATE=$(date +"%Y.%m.%d")" >> $GITHUB_ENV
 
-      - name: Upload bin directory
-        uses: actions/upload-artifact@v7
-        if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-        with:
-          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: openwrt/bin
+    - name: Organize Files(整理文件)
+      if: steps.compile.outputs.status == 'success'
+      run: |
+        cd $OPENWRT_PATH/bin/targets/*/*
+        cat sha256sums
+        echo "VERSION_KERNEL=$(find -type f -name "*.manifest" -exec grep -oP '^kernel - \K.*?(?=~|-\d+-)' {} \;)" >> $GITHUB_ENV
+        cp $OPENWRT_PATH/.config build.config
+        echo "FIRMWARE_PATH=$PWD" >> $GITHUB_ENV
 
-      - name: Organize files
-        id: organize
-        if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
-        run: |
-          # 配置了多个 target 时通配符会匹配多个目录导致 cd 报错，这里只取第一个
-          TARGET_DIR=$(ls -d openwrt/bin/targets/*/* 2>/dev/null | head -n1 || true)
-          if [ -z "$TARGET_DIR" ]; then
-            echo "未找到编译产物目录 openwrt/bin/targets/*/*"
-            exit 1
-          fi
-          cd "$TARGET_DIR"
-          rm -rf packages
-          echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-          echo "status=success" >> $GITHUB_OUTPUT
+    - name: Upload Firmware To Release(发布固件)
+      if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true'
+      uses: ncipollo/release-action@v1
+      with:
+        name: ${{ env.RELEASE_TAG }}
+        tag: ${{ env.RELEASE_TAG }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        artifacts: ${{ env.FIRMWARE_PATH }}/*
+        body: |
+          **This is OpenWrt Firmware for XG-040G-MD**
+          ### 📒 固件信息(XG-040G-MD)
+          - 这是 XG-040G-MD 的专属构建
+          - 💻 目标分支：${{ env.REPO_BRANCH }}
+          - ⚽ 固件源码: ${{ env.REPO_URL }}
+          - 🌐 默认地址: 192.168.1.1
+          - 🔑 默认密码: 无
+          ### 🧊 固件版本
+          - 固件内核版本：${{ env.VERSION_KERNEL }}
+          - 固件编译前最后一次➦[主源码](${{ env.REPO_URL }})更新记录
+          - ${{ env.VERSION_INFO }}
 
-      - name: Upload firmware directory
-        uses: actions/upload-artifact@v7
-        if: steps.organize.outputs.status == 'success' && !cancelled()
-        with:
-          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-          path: ${{ env.FIRMWARE }}
-
-      - name: Generate release tag
-        id: tag
-        if: env.UPLOAD_RELEASE == 'true' && steps.organize.outputs.status == 'success' && !cancelled()
-        run: |
-          # 精确到秒，降低同分钟重复构建时 tag 冲突导致上传失败的概率
-          echo "release_tag=xg040gmd-$(date +'%Y.%m.%d-%H%M%S')" >> $GITHUB_OUTPUT
-          echo "status=success" >> $GITHUB_OUTPUT
-          {
-            echo "OpenWrt XG-040G-MD (tcboot) 编译完成！"
-            echo "- 设备: ${{ env.DEVICE_NAME }}"
-            echo "- 编译时间: $(date '+%Y-%m-%d %H:%M:%S %Z')"
-          } > release.txt
-
-      - name: Upload firmware to release
-        uses: softprops/action-gh-release@v3
-        if: steps.tag.outputs.status == 'success' && !cancelled()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ steps.tag.outputs.release_tag }}
-          body_path: release.txt
-          files: ${{ env.FIRMWARE }}/*
-
-      - name: Delete workflow runs
-        # 已维护，固定到大版本 v2（原 @main 指向不固定分支）
-        uses: Mattraks/delete-workflow-runs@v2
-        with:
-          retain_days: 0
-          keep_minimum_runs: 2
-          # 只清理本工作流的运行记录，不误删仓库里其他工作流
-          delete_workflow_pattern: OpenWrt Builder XG-040G-MD (tcboot)
-
-      - name: Remove old Releases
-        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # 只删 tag 以 xg040gmd- 开头的 Release（保留最新 3 个），不误删主 workflow 的
-          gh release list --limit 100 --json tagName,publishedAt \
-            --jq '[.[] | select(.tagName | startswith("xg040gmd-"))] | sort_by(.publishedAt) | reverse | .[3:][] | .tagName' \
-            | xargs -r -I{} gh release delete {} --yes --cleanup-tag || true
+    - name: Remove old Releases
+      if: steps.compile.outputs.status == 'success' && env.FIRMWARE_RELEASE == 'true' && !cancelled()
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # 只删 tag 以 XG-040G-MD- 开头的 Release（保留最新 3 个）
+        gh release list --limit 100 --json tagName,publishedAt \
+          --jq '[.[] | select(.tagName | startswith("XG-040G-MD-"))] | sort_by(.publishedAt) | reverse | .[3:][] | .tagName' \
+          | xargs -r -I{} gh release delete {} --yes --cleanup-tag || true
